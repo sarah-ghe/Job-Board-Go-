@@ -5,15 +5,9 @@ import (
 	"net/http"
 
 	"job-board/models"
+	"job-board/config"
 )
 
-var jobs = []models.Job{
-	{
-		ID:          1,
-		Title:       "Backend Developer",
-		Description: "Build APIs using Go",
-	},
-}
 
 func JobsHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -30,12 +24,37 @@ func JobsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
 func getJobs(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+
+	rows, err := config.DB.Query("SELECT id, title, description FROM jobs")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var jobs []models.Job
+
+	for rows.Next() {
+		var job models.Job
+
+		err := rows.Scan(&job.ID, &job.Title, &job.Description)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		jobs = append(jobs, job)
+	}
+
 	json.NewEncoder(w).Encode(jobs)
 }
 
+
+
 func createJob(w http.ResponseWriter, r *http.Request) {
+
 	var newJob models.Job
 
 	err := json.NewDecoder(r.Body).Decode(&newJob)
@@ -44,9 +63,22 @@ func createJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newJob.ID = len(jobs) + 1
-	jobs = append(jobs, newJob)
+	query := `
+	INSERT INTO jobs (title, description)
+	VALUES ($1, $2)
+	RETURNING id
+	`
 
-	w.Header().Set("Content-Type", "application/json")
+	err = config.DB.QueryRow(
+		query,
+		newJob.Title,
+		newJob.Description,
+	).Scan(&newJob.ID)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	json.NewEncoder(w).Encode(newJob)
 }
