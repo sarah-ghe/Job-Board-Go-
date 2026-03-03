@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"job-board/models"
-	"job-board/config"
-)
+	"github.com/gorilla/mux"
 
+	"job-board/config"
+	"job-board/models"
+)
 
 func JobsHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -23,7 +24,6 @@ func JobsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
-
 
 func getJobs(w http.ResponseWriter, r *http.Request) {
 
@@ -50,8 +50,6 @@ func getJobs(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(jobs)
 }
-
-
 
 func createJob(w http.ResponseWriter, r *http.Request) {
 
@@ -81,4 +79,67 @@ func createJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(newJob)
+}
+
+func UpdateJob(w http.ResponseWriter, r *http.Request) {
+
+	var updatedJob models.Job
+
+	err := json.NewDecoder(r.Body).Decode(&updatedJob)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+
+	query := `
+	UPDATE jobs
+	SET title = $1, description = $2
+	WHERE id = $3
+	RETURNING id
+	`
+
+	err = config.DB.QueryRow(
+		query,
+		updatedJob.Title,
+		updatedJob.Description,
+		id,
+	).Scan(&updatedJob.ID)
+
+	if err != nil {
+		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(updatedJob)
+}
+
+func DeleteJob(w http.ResponseWriter, r *http.Request) {
+
+	id := mux.Vars(r)["id"]
+
+	query := `
+	DELETE FROM jobs
+	WHERE id = $1
+	`
+
+	result, err := config.DB.Exec(query, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if rowsAffected == 0 {
+		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
