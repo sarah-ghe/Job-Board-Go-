@@ -1,0 +1,100 @@
+package repositories
+
+import (
+	"database/sql"
+	"job-board/models"
+)
+
+type JobRepository struct {
+	DB *sql.DB
+}
+
+func (r *JobRepository) Create(job *models.Job) error {
+
+	query := `
+	INSERT INTO jobs (title, description)
+	VALUES ($1, $2)
+	RETURNING id
+	`
+
+	return r.DB.QueryRow(
+		query,
+		job.Title,
+		job.Description,
+	).Scan(&job.ID)
+}
+
+
+func (r *JobRepository) GetAll() ([]models.Job, error) {
+
+	query := `SELECT id, title, description FROM jobs`
+
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []models.Job
+
+	for rows.Next() {
+		var job models.Job
+
+		err := rows.Scan(&job.ID, &job.Title, &job.Description)
+		if err != nil {
+			return nil, err
+		}
+
+		jobs = append(jobs, job)
+	}
+
+	return jobs, nil
+}
+
+
+func (r *JobRepository) Update(id string, job *models.Job) error {
+
+	query := `
+	UPDATE jobs
+	SET title=$1, description=$2
+	WHERE id=$3
+	`
+
+	result, err := r.DB.Exec(query, job.Title, job.Description, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+
+func (r *JobRepository) Delete(id string) error {
+
+	query := `DELETE FROM jobs WHERE id=$1`
+
+	result, err := r.DB.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
