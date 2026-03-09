@@ -11,8 +11,9 @@ import (
 )
 
 type JobHandler struct {
-	Service *services.JobService
+	Service *services.JobService //calls the service layer to perform business logic}
 }
+
 
 func (h *JobHandler) JobsHandler(w http.ResponseWriter, r *http.Request) {
 

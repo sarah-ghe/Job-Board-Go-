@@ -5,11 +5,11 @@ import (
 	"job-board/models"
 )
 
-type JobRepository struct {
+type PostgresJobRepository struct {
 	DB *sql.DB
 }
 
-func (r *JobRepository) Create(job *models.Job) error {
+func (r *PostgresJobRepository) Create(job *models.Job) error {
 
 	query := `
 	INSERT INTO jobs (title, description)
@@ -25,7 +25,7 @@ func (r *JobRepository) Create(job *models.Job) error {
 }
 
 
-func (r *JobRepository) GetAll() ([]models.Job, error) {
+func (r *PostgresJobRepository) GetAll() ([]models.Job, error) {
 
 	query := `SELECT id, title, description FROM jobs`
 
@@ -52,7 +52,7 @@ func (r *JobRepository) GetAll() ([]models.Job, error) {
 }
 
 
-func (r *JobRepository) Update(id string, job *models.Job) error {
+func (r *PostgresJobRepository) Update(id string, job *models.Job) error {
 
 	query := `
 	UPDATE jobs
@@ -78,7 +78,7 @@ func (r *JobRepository) Update(id string, job *models.Job) error {
 }
 
 
-func (r *JobRepository) Delete(id string) error {
+func (r *PostgresJobRepository) Delete(id string) error {
 
 	query := `DELETE FROM jobs WHERE id=$1`
 

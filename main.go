@@ -17,7 +17,7 @@ func main() {
 	config.ConnectDB()
 
 	// Create repository
-	jobRepo := &repositories.JobRepository{
+	jobRepo := &repositories.PostgresJobRepository{
 		DB: config.DB,
 	}
 

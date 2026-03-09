@@ -3,11 +3,17 @@ package services
 import (
 	"errors"
 	"job-board/models"
-	"job-board/repositories"
 )
 
 type JobService struct {
-	Repo *repositories.JobRepository
+	Repo JobRepository
+}
+
+type JobRepository interface {
+	Create(job *models.Job) error
+	GetAll() ([]models.Job, error)
+	Update(id string, job *models.Job) error
+	Delete(id string) error
 }
 
 
