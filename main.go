@@ -31,6 +31,18 @@ func main() {
 		Service: jobService,
 	}
 
+	userRepo := &repositories.PostgresUserRepository{
+	DB: config.DB,
+	}
+
+	userService := &services.UserService{
+		Repo: userRepo,
+	}
+
+	userHandler := &handlers.UserHandler{
+		Service: userService,
+	}
+
 	// Initialize router
 	router := mux.NewRouter()
 

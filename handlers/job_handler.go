@@ -11,7 +11,7 @@ import (
 )
 
 type JobHandler struct {
-	Service *services.JobService //calls the service layer to perform business logic}
+	Service *services.JobService //calls the service layer to perform business logic
 }
 
 
