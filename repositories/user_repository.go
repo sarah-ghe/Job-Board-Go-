@@ -1,6 +1,7 @@
 package repositories
 
 import "job-board/models"
+import "database/sql"
 
 type PostgresUserRepository struct {
 	DB *sql.DB

@@ -2,10 +2,11 @@ package services
 
 import (
 	"errors"
-	"job-board/models"		
-	"job-board/repositories"
-)
+	"job-board/models"
+	"job-board/utils"
 
+	"golang.org/x/crypto/bcrypt"
+)
 
 type UserRepository interface {
 	Create(user *models.User) error
@@ -31,7 +32,6 @@ func (s *UserService) Register(user *models.User) error {
 	return s.Repo.Create(user)
 }
 
-
 func (s *UserService) Login(email, password string) (string, error) {
 
 	user, err := s.Repo.GetByEmail(email)
@@ -47,7 +47,7 @@ func (s *UserService) Login(email, password string) (string, error) {
 		return "", errors.New("invalid credentials")
 	}
 
-	token, err := GenerateJWT(user.ID)
+	token, err := utils.GenerateToken(user.ID)
 	if err != nil {
 		return "", err
 	}
