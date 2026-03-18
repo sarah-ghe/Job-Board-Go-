@@ -1,7 +1,9 @@
 package repositories
 
-import "job-board/models"
-import "database/sql"
+import (
+	"database/sql"
+	"job-board/models"
+)
 
 type PostgresUserRepository struct {
 	DB *sql.DB
@@ -13,7 +15,7 @@ func (r *PostgresUserRepository) Create(user *models.User) error {
 	INSERT INTO users (email, password)
 	VALUES ($1, $2)
 	RETURNING id
-	`	
+	`
 
 	return r.DB.QueryRow(
 		query,
@@ -21,7 +23,6 @@ func (r *PostgresUserRepository) Create(user *models.User) error {
 		user.Password,
 	).Scan(&user.ID)
 }
-
 
 func (r *PostgresUserRepository) GetByEmail(email string) (*models.User, error) {
 
@@ -34,6 +35,25 @@ func (r *PostgresUserRepository) GetByEmail(email string) (*models.User, error) 
 	user := &models.User{}
 
 	err := r.DB.QueryRow(query, email).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Password,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (r *PostgresUserRepository) GetByID(id int) (*models.User, error) {
+
+	query := "SELECT id, email, password FROM users WHERE id = $1"
+
+	user := &models.User{}
+
+	err := r.DB.QueryRow(query, id).Scan(
 		&user.ID,
 		&user.Email,
 		&user.Password,

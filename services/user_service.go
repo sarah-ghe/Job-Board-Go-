@@ -11,6 +11,7 @@ import (
 type UserRepository interface {
 	Create(user *models.User) error
 	GetByEmail(email string) (*models.User, error)
+	GetByID(id int) (*models.User, error)
 }
 
 type UserService struct {
@@ -53,4 +54,8 @@ func (s *UserService) Login(email, password string) (string, error) {
 	}
 
 	return token, nil
+}
+
+func (s *UserService) GetUserByID(id int) (*models.User, error) {
+	return s.Repo.GetByID(id)
 }

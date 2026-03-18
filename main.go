@@ -3,6 +3,7 @@ package main
 import (
 	"job-board/config"
 	"job-board/handlers"
+	"job-board/middleware"
 	"job-board/repositories"
 	"job-board/services"
 	"log"
@@ -12,27 +13,28 @@ import (
 )
 
 func main() {
-	
+
 	// Initialize database connection
 	config.ConnectDB()
 
-	// Create repository
+	// ---------------- JOB SETUP ----------------
+
 	jobRepo := &repositories.PostgresJobRepository{
 		DB: config.DB,
 	}
 
-	// Create service
 	jobService := &services.JobService{
 		Repo: jobRepo,
 	}
 
-	// Create handler
 	jobHandler := &handlers.JobHandler{
 		Service: jobService,
 	}
 
+	// ---------------- USER SETUP ----------------
+
 	userRepo := &repositories.PostgresUserRepository{
-	DB: config.DB,
+		DB: config.DB,
 	}
 
 	userService := &services.UserService{
@@ -43,16 +45,25 @@ func main() {
 		Service: userService,
 	}
 
-	// Initialize router
+	// ---------------- ROUTER ----------------
+
 	router := mux.NewRouter()
 
-	// Routes
-	router.HandleFunc("/jobs", jobHandler.CreateJob).Methods("POST")
-	router.HandleFunc("/jobs", jobHandler.GetJobs).Methods("GET")
-	router.HandleFunc("/jobs/{id}", jobHandler.UpdateJob).Methods("PUT")
-	router.HandleFunc("/jobs/{id}", jobHandler.DeleteJob).Methods("DELETE")
+	// -------- PUBLIC ROUTES --------
 
-	// Start server
+	router.HandleFunc("/register", userHandler.Register).Methods("POST")
+	router.HandleFunc("/login", userHandler.Login).Methods("POST")
+
+	// -------- PROTECTED ROUTES --------
+
+	router.Handle("/jobs", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.CreateJob))).Methods("POST")
+	router.Handle("/jobs", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.GetJobs))).Methods("GET")
+	router.Handle("/jobs/{id}", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.UpdateJob))).Methods("PUT")
+	router.Handle("/jobs/{id}", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.DeleteJob))).Methods("DELETE")
+	router.Handle("/me", middleware.AuthMiddleware(http.HandlerFunc(userHandler.GetMe))).Methods("GET")
+
+	// ---------------- START SERVER ----------------
+
 	log.Println("Server running on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
