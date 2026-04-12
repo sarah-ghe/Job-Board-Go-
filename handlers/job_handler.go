@@ -56,6 +56,8 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.Service.CreateJob(&job)
+	userID := r.Context().Value("user_id").(int)
+	job.UserID = userID
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

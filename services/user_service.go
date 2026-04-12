@@ -18,6 +18,10 @@ type UserService struct {
 	Repo UserRepository
 }
 
+func (s *UserService) GetByEmail(email string) (*models.User, error) {
+	return s.Repo.GetByEmail(email)
+}
+
 func (s *UserService) Register(user *models.User) error {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword(

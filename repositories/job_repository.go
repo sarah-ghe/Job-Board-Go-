@@ -12,8 +12,8 @@ type PostgresJobRepository struct {
 func (r *PostgresJobRepository) Create(job *models.Job) error {
 
 	query := `
-	INSERT INTO jobs (title, description)
-	VALUES ($1, $2)
+	INSERT INTO jobs (title, description, user_id)
+	VALUES ($1, $2, $3)
 	RETURNING id
 	`
 
@@ -21,13 +21,14 @@ func (r *PostgresJobRepository) Create(job *models.Job) error {
 		query,
 		job.Title,
 		job.Description,
+		job.UserID,
 	).Scan(&job.ID)
 }
 
 
 func (r *PostgresJobRepository) GetAll() ([]models.Job, error) {
 
-	query := `SELECT id, title, description FROM jobs`
+	query := `SELECT id, title, description, user_id FROM jobs`
 
 	rows, err := r.DB.Query(query)
 	if err != nil {

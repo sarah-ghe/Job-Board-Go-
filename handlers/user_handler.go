@@ -31,6 +31,8 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 
+
+
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var request struct {
@@ -50,10 +52,21 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": token,
-	})
+	user, _ := h.Service.GetByEmail(request.Email)
+
+	response := models.LoginResponse{
+		Token: token,
+		User: models.UserResponse{
+			ID:    user.ID,
+			Email: user.Email,
+		},
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
+
+
+
 
 
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -66,8 +79,11 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// never return password
-	user.Password = ""
+	// used the dto to not return the password field in the response
+	response := models.UserResponse{
+		ID:    user.ID,
+		Email: user.Email,
+	}
 
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(response)
 }
