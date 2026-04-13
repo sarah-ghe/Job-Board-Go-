@@ -25,7 +25,6 @@ func (r *PostgresJobRepository) Create(job *models.Job) error {
 	).Scan(&job.ID)
 }
 
-
 func (r *PostgresJobRepository) GetAll() ([]models.Job, error) {
 
 	query := `SELECT id, title, description, user_id FROM jobs`
@@ -41,7 +40,7 @@ func (r *PostgresJobRepository) GetAll() ([]models.Job, error) {
 	for rows.Next() {
 		var job models.Job
 
-		err := rows.Scan(&job.ID, &job.Title, &job.Description)
+		err := rows.Scan(&job.ID, &job.Title, &job.Description, &job.UserID)
 		if err != nil {
 			return nil, err
 		}
@@ -52,8 +51,7 @@ func (r *PostgresJobRepository) GetAll() ([]models.Job, error) {
 	return jobs, nil
 }
 
-
-func (r *PostgresJobRepository) GetByUserID(userID int) ([]models.Job, error) { 
+func (r *PostgresJobRepository) GetByUserID(userID int) ([]models.Job, error) {
 
 	query := "SELECT id, title, description, user_id FROM jobs WHERE user_id = $1"
 
@@ -78,8 +76,28 @@ func (r *PostgresJobRepository) GetByUserID(userID int) ([]models.Job, error) {
 }
 
 
+func (r *PostgresJobRepository) GetByID(id int) (*models.Job, error) {
 
-func (r *PostgresJobRepository) Update(id string, job *models.Job) error {
+	query := "SELECT id, title, description, user_id FROM jobs WHERE id = $1"
+
+	job := &models.Job{}
+
+	err := r.DB.QueryRow(query, id).Scan(
+		&job.ID,
+		&job.Title,
+		&job.Description,
+		&job.UserID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return job, nil
+}
+
+
+func (r *PostgresJobRepository) Update(job *models.Job) error {
 
 	query := `
 	UPDATE jobs
@@ -87,7 +105,7 @@ func (r *PostgresJobRepository) Update(id string, job *models.Job) error {
 	WHERE id=$3
 	`
 
-	result, err := r.DB.Exec(query, job.Title, job.Description, id)
+	result, err := r.DB.Exec(query, job.Title, job.Description, job.ID)
 	if err != nil {
 		return err
 	}
@@ -104,8 +122,7 @@ func (r *PostgresJobRepository) Update(id string, job *models.Job) error {
 	return nil
 }
 
-
-func (r *PostgresJobRepository) Delete(id string) error {
+func (r *PostgresJobRepository) Delete(id int) error {
 
 	query := `DELETE FROM jobs WHERE id=$1`
 

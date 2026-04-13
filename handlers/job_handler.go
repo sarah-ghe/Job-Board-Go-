@@ -4,16 +4,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
+
+	"job-board/models"
+	"job-board/services"
 
 	"github.com/gorilla/mux"
-	"job-board/services"
-	"job-board/models"
 )
 
 type JobHandler struct {
 	Service *services.JobService //calls the service layer to perform business logic
 }
-
 
 func (h *JobHandler) JobsHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -30,8 +31,6 @@ func (h *JobHandler) JobsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
-
 func (h *JobHandler) GetJobs(w http.ResponseWriter, r *http.Request) {
 
 	jobs, err := h.Service.GetJobs()
@@ -42,7 +41,6 @@ func (h *JobHandler) GetJobs(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(jobs)
 }
-
 
 func (h *JobHandler) GetMyJobs(w http.ResponseWriter, r *http.Request) {
 
@@ -57,7 +55,6 @@ func (h *JobHandler) GetMyJobs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(jobs)
 }
 
-
 func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 	var job models.Job
@@ -68,9 +65,10 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.Service.CreateJob(&job)
 	userID := r.Context().Value("user_id").(int)
 	job.UserID = userID
+
+	err = h.Service.CreateJob(&job)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -79,21 +77,26 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(job)
 }
 
-
-
 func (h *JobHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 
-	id := mux.Vars(r)["id"]
+	idStr := mux.Vars(r)["id"]
+	userID := r.Context().Value("user_id").(int)
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid job id", http.StatusBadRequest)
+		return
+	}
 
 	var job models.Job
 
-	err := json.NewDecoder(r.Body).Decode(&job)
+	err = json.NewDecoder(r.Body).Decode(&job)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	err = h.Service.UpdateJob(id, &job)
+	err = h.Service.UpdateJob(id, userID, &job)
 
 	if err == sql.ErrNoRows {
 		http.Error(w, "job not found", http.StatusNotFound)
@@ -108,13 +111,18 @@ func (h *JobHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(job)
 }
 
-
-
 func (h *JobHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 
-	id := mux.Vars(r)["id"]
+	idStr := mux.Vars(r)["id"]
+	userID := r.Context().Value("user_id").(int)
 
-	err := h.Service.DeleteJob(id)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid job id", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Service.DeleteJob(id, userID)
 
 	if err == sql.ErrNoRows {
 		http.Error(w, "job not found", http.StatusNotFound)
@@ -128,4 +136,3 @@ func (h *JobHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
-
