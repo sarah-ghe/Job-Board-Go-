@@ -53,6 +53,32 @@ func (r *PostgresJobRepository) GetAll() ([]models.Job, error) {
 }
 
 
+func (r *PostgresJobRepository) GetByUserID(userID int) ([]models.Job, error) { 
+
+	query := "SELECT id, title, description, user_id FROM jobs WHERE user_id = $1"
+
+	rows, err := r.DB.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []models.Job
+
+	for rows.Next() {
+		var job models.Job
+		err := rows.Scan(&job.ID, &job.Title, &job.Description, &job.UserID)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+
+	return jobs, nil
+}
+
+
+
 func (r *PostgresJobRepository) Update(id string, job *models.Job) error {
 
 	query := `

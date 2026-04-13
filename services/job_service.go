@@ -36,6 +36,11 @@ func (s *JobService) GetJobs() ([]models.Job, error) {
 }
 
 
+func (s *JobService) GetJobsByUser(userID int) ([]models.Job, error) {
+	return s.Repo.GetByUserID(userID)
+}
+
+
 
 func (s *JobService) UpdateJob(id string, job *models.Job) error {
 

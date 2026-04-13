@@ -44,6 +44,19 @@ func (h *JobHandler) GetJobs(w http.ResponseWriter, r *http.Request) {
 }
 
 
+func (h *JobHandler) GetMyJobs(w http.ResponseWriter, r *http.Request) {
+
+	userID := r.Context().Value("user_id").(int)
+
+	jobs, err := h.Service.GetJobsByUser(userID)
+	if err != nil {
+		http.Error(w, "could not fetch jobs", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(jobs)
+}
+
 
 func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 
@@ -115,3 +128,4 @@ func (h *JobHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+

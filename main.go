@@ -57,10 +57,11 @@ func main() {
 	// -------- PROTECTED ROUTES --------
 
 	router.Handle("/jobs", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.CreateJob))).Methods("POST")
-	router.Handle("/jobs", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.GetJobs))).Methods("GET")
+	router.Handle("/jobs", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.GetJobs))).Methods("GET") // public endpoints return all data
 	router.Handle("/jobs/{id}", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.UpdateJob))).Methods("PUT")
 	router.Handle("/jobs/{id}", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.DeleteJob))).Methods("DELETE")
 	router.Handle("/me", middleware.AuthMiddleware(http.HandlerFunc(userHandler.GetMe))).Methods("GET")
+	router.Handle("/my-jobs", middleware.AuthMiddleware(http.HandlerFunc(jobHandler.GetMyJobs)),).Methods("GET") // protected endpoints use the authenticated user_id to filter resources belonging to the user.
 
 	// ---------------- START SERVER ----------------
 
