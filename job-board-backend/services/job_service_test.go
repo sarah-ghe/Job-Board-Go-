@@ -13,14 +13,12 @@ type FakeJobRepository struct {
 	DeletedID  int
 }
 
-// --- CREATE ---
 func (f *FakeJobRepository) Create(job *models.Job) error {
 	job.ID = len(f.Jobs) + 1
 	f.Jobs = append(f.Jobs, *job)
 	return nil
 }
 
-// --- READ ---
 func (f *FakeJobRepository) GetAll() ([]models.Job, error) {
 	return f.Jobs, nil
 }
@@ -44,7 +42,6 @@ func (f *FakeJobRepository) GetByUserID(userID int) ([]models.Job, error) {
 	return userJobs, nil
 }
 
-// --- UPDATE ---
 func (f *FakeJobRepository) Update(job *models.Job, userID int) error {
 	for i := range f.Jobs {
 		if f.Jobs[i].ID == job.ID {
@@ -63,12 +60,10 @@ func (f *FakeJobRepository) Update(job *models.Job, userID int) error {
 	return errors.New("not found")
 }
 
-// --- DELETE ---
 func (f *FakeJobRepository) Delete(id int, userID int) error {
 	for i := range f.Jobs {
 		if f.Jobs[i].ID == id {
 
-			// simulate ownership check
 			if !f.Jobs[i].UserID.Valid || f.Jobs[i].UserID.Int64 != int64(userID) {
 				return errors.New("forbidden")
 			}
@@ -81,9 +76,7 @@ func (f *FakeJobRepository) Delete(id int, userID int) error {
 	return errors.New("not found")
 }
 
-//
-// ---------------- TESTS ----------------
-//
+//tests
 
 func TestCreateJob_TitleRequired(t *testing.T) {
 	service := JobService{Repo: &FakeJobRepository{}}
