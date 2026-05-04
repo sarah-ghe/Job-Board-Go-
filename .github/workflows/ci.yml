@@ -15,7 +15,7 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: testuser
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: testpassword
           POSTGRES_DB: jobboard_test
         ports:
@@ -29,7 +29,7 @@ jobs:
     env:
       DB_HOST: localhost
       DB_PORT: 5432
-      DB_USER: testuser
+      DB_USER: postgres
       DB_PASSWORD: testpassword
       DB_NAME: jobboard_test
       JWT_SECRET: test-secret-key-for-ci
