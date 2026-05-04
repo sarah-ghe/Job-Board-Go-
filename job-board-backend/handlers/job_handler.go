@@ -13,40 +13,31 @@ import (
 )
 
 type JobHandler struct {
-	Service *services.JobService //calls the service layer to perform business logic
+	Service *services.JobService
 }
 
-func (h *JobHandler) JobsHandler(w http.ResponseWriter, r *http.Request) {
-
-	switch r.Method {
-
-	case http.MethodGet:
-		h.GetJobs(w, r)
-
-	case http.MethodPost:
-		h.CreateJob(w, r)
-
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
+// GET /jobs
 func (h *JobHandler) GetJobs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	jobs, err := h.Service.GetJobs()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "could not fetch jobs", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(jobs)
+	var response []JobResponse
+	for _, job := range jobs {
+		response = append(response, toJobResponse(job))
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
+// GET /jobs/{id}
 func (h *JobHandler) GetJobById(w http.ResponseWriter, r *http.Request) {
-	// Always set response type
 	w.Header().Set("Content-Type", "application/json")
 
-	// Get ID from URL
 	idStr := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -54,21 +45,18 @@ func (h *JobHandler) GetJobById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch job
 	job, err := h.Service.GetByID(id)
 	if err != nil {
 		http.Error(w, "job not found", http.StatusNotFound)
 		return
 	}
 
-	// Encode response safely
-	if err := json.NewEncoder(w).Encode(job); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	json.NewEncoder(w).Encode(toJobResponse(*job))
 }
 
+// GET /my-jobs (protected)
 func (h *JobHandler) GetMyJobs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	userID := r.Context().Value("user_id").(int)
 
@@ -78,15 +66,22 @@ func (h *JobHandler) GetMyJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(jobs)
+	var response []JobResponse
+	for _, job := range jobs {
+		response = append(response, toJobResponse(job))
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
+// POST /jobs (protected)
 func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	var job models.Job
 	err := json.NewDecoder(r.Body).Decode(&job)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -95,16 +90,18 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 	err = h.Service.CreateJob(&job)
 	if err != nil {
-		http.Error(w, "Could not create job", http.StatusInternalServerError)
+		http.Error(w, "could not create job", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(job)
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(toJobResponse(job))
 }
 
+// PUT /jobs/{id} (protected + ownership)
 func (h *JobHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
-	//get job ID from URL
 	idStr := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -112,34 +109,30 @@ func (h *JobHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//get authenticaed user ID from context
 	userID := r.Context().Value("user_id").(int)
 
 	var job models.Job
 	err = json.NewDecoder(r.Body).Decode(&job)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	err = h.Service.UpdateJob(id, userID, &job)
-	if err == sql.ErrNoRows {
-		http.Error(w, "job not found or unauthorized", http.StatusNotFound)
-		return
-	}
-
 	if err != nil {
-		http.Error(w, "Could not update job", http.StatusInternalServerError)
+		http.Error(w, "not found or unauthorized", http.StatusForbidden)
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Job updated successfully",
-	})
+	// Important: ensure ID + UserID are set for response
+	job.ID = id
+	job.UserID = sql.NullInt64{Int64: int64(userID), Valid: true}
+
+	json.NewEncoder(w).Encode(toJobResponse(job))
 }
 
+// DELETE /jobs/{id} (protected + ownership)
 func (h *JobHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
-
 	idStr := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -147,24 +140,14 @@ func (h *JobHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//get authenticaed user ID from context
 	userID := r.Context().Value("user_id").(int)
 
-	//delete only if the user owns the job
 	err = h.Service.DeleteJob(id, userID)
-	if err == sql.ErrNoRows {
-		http.Error(w, "job not found or unauthorized", http.StatusNotFound)
-		return
-	}
-
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "not found or unauthorized", http.StatusForbidden)
 		return
 	}
 
+	//REST behavior: no body
 	w.WriteHeader(http.StatusNoContent)
-
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Job deleted successfully",
-	})
 }

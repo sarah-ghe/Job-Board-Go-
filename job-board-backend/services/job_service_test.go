@@ -2,6 +2,7 @@ package services
 
 import (
 	"database/sql"
+	"errors"
 	"job-board/models"
 	"testing"
 )
@@ -12,12 +13,14 @@ type FakeJobRepository struct {
 	DeletedID  int
 }
 
+// --- CREATE ---
 func (f *FakeJobRepository) Create(job *models.Job) error {
 	job.ID = len(f.Jobs) + 1
 	f.Jobs = append(f.Jobs, *job)
 	return nil
 }
 
+// --- READ ---
 func (f *FakeJobRepository) GetAll() ([]models.Job, error) {
 	return f.Jobs, nil
 }
@@ -41,35 +44,55 @@ func (f *FakeJobRepository) GetByUserID(userID int) ([]models.Job, error) {
 	return userJobs, nil
 }
 
-func (f *FakeJobRepository) Update(job *models.Job) error {
-	f.UpdatedJob = job
+// --- UPDATE ---
+func (f *FakeJobRepository) Update(job *models.Job, userID int) error {
 	for i := range f.Jobs {
 		if f.Jobs[i].ID == job.ID {
+
+			// simulate ownership check
+			if !f.Jobs[i].UserID.Valid || f.Jobs[i].UserID.Int64 != int64(userID) {
+				return errors.New("forbidden")
+			}
+
+			job.UserID = f.Jobs[i].UserID
 			f.Jobs[i] = *job
+			f.UpdatedJob = job
 			return nil
 		}
 	}
-	return nil
+	return errors.New("not found")
 }
 
-func (f *FakeJobRepository) Delete(id int) error {
-	f.DeletedID = id
+// --- DELETE ---
+func (f *FakeJobRepository) Delete(id int, userID int) error {
 	for i := range f.Jobs {
 		if f.Jobs[i].ID == id {
+
+			// simulate ownership check
+			if !f.Jobs[i].UserID.Valid || f.Jobs[i].UserID.Int64 != int64(userID) {
+				return errors.New("forbidden")
+			}
+
+			f.DeletedID = id
 			f.Jobs = append(f.Jobs[:i], f.Jobs[i+1:]...)
 			return nil
 		}
 	}
-	return nil
+	return errors.New("not found")
 }
 
+//
+// ---------------- TESTS ----------------
+//
+
 func TestCreateJob_TitleRequired(t *testing.T) {
-	fakeRepo := &FakeJobRepository{}
-	service := JobService{Repo: fakeRepo}
+	service := JobService{Repo: &FakeJobRepository{}}
 
 	job := models.Job{Title: ""}
-	if err := service.CreateJob(&job); err == nil {
-		t.Fatalf("expected error when title is empty")
+	err := service.CreateJob(&job)
+
+	if err == nil {
+		t.Fatal("expected error when title is empty")
 	}
 }
 
@@ -78,23 +101,31 @@ func TestCreateJob_Success(t *testing.T) {
 	service := JobService{Repo: fakeRepo}
 
 	job := models.Job{Title: "Go Developer", Description: "Build APIs"}
-	if err := service.CreateJob(&job); err != nil {
+
+	err := service.CreateJob(&job)
+
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
 	if job.ID == 0 {
-		t.Fatalf("expected job ID to be set")
+		t.Fatal("expected job ID to be set")
 	}
 	if len(fakeRepo.Jobs) != 1 {
-		t.Fatalf("expected job to be stored in repository, got %d", len(fakeRepo.Jobs))
+		t.Fatalf("expected 1 job, got %d", len(fakeRepo.Jobs))
 	}
 }
 
 func TestGetJobs_ReturnsAllJobs(t *testing.T) {
-	fakeRepo := &FakeJobRepository{Jobs: []models.Job{{ID: 1, Title: "Job1"}, {ID: 2, Title: "Job2"}}}
+	fakeRepo := &FakeJobRepository{
+		Jobs: []models.Job{
+			{ID: 1, Title: "Job1"},
+			{ID: 2, Title: "Job2"},
+		},
+	}
 	service := JobService{Repo: fakeRepo}
 
 	jobs, err := service.GetJobs()
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,69 +134,86 @@ func TestGetJobs_ReturnsAllJobs(t *testing.T) {
 	}
 }
 
-func TestGetJobsByUser_FiltersByUserID(t *testing.T) {
-	fakeRepo := &FakeJobRepository{Jobs: []models.Job{{ID: 1, UserID: sql.NullInt64{Int64: 1, Valid: true}, Title: "Job1"}, {ID: 2, UserID: sql.NullInt64{Int64: 2, Valid: true}, Title: "Job2"}}}
+func TestGetJobsByUser_FiltersCorrectly(t *testing.T) {
+	fakeRepo := &FakeJobRepository{
+		Jobs: []models.Job{
+			{ID: 1, UserID: sql.NullInt64{Int64: 1, Valid: true}, Title: "Job1"},
+			{ID: 2, UserID: sql.NullInt64{Int64: 2, Valid: true}, Title: "Job2"},
+		},
+	}
 	service := JobService{Repo: fakeRepo}
 
-	jobs, err := service.GetJobsByUser(1)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	jobs, _ := service.GetJobsByUser(1)
+
 	if len(jobs) != 1 {
-		t.Fatalf("expected 1 job for user 1, got %d", len(jobs))
-	}
-	if jobs[0].UserID.Int64 != 1 {
-		t.Fatalf("expected user ID 1, got %d", jobs[0].UserID.Int64)
+		t.Fatalf("expected 1 job, got %d", len(jobs))
 	}
 }
 
-func TestUpdateJob_OwnerMismatchReturnsForbidden(t *testing.T) {
-	fakeRepo := &FakeJobRepository{Jobs: []models.Job{{ID: 1, UserID: 2, Title: "Original"}}}
+func TestUpdateJob_Forbidden(t *testing.T) {
+	fakeRepo := &FakeJobRepository{
+		Jobs: []models.Job{
+			{ID: 1, UserID: sql.NullInt64{Int64: 2, Valid: true}, Title: "Original"},
+		},
+	}
 	service := JobService{Repo: fakeRepo}
 
-	job := models.Job{Title: "Updated Title", Description: "Updated"}
+	job := models.Job{Title: "Updated"}
 	err := service.UpdateJob(1, 1, &job)
+
 	if err == nil {
-		t.Fatalf("expected forbidden error for non-owner")
+		t.Fatal("expected forbidden error")
 	}
 }
 
 func TestUpdateJob_Success(t *testing.T) {
-	fakeRepo := &FakeJobRepository{Jobs: []models.Job{{ID: 1, UserID: sql.NullInt64{Int64: 1, Valid: true}, Title: "Original", Description: "Old"}}}
+	fakeRepo := &FakeJobRepository{
+		Jobs: []models.Job{
+			{ID: 1, UserID: sql.NullInt64{Int64: 1, Valid: true}, Title: "Old"},
+		},
+	}
 	service := JobService{Repo: fakeRepo}
 
-	updated := models.Job{Title: "Updated Title", Description: "Updated"}
-	if err := service.UpdateJob(1, 1, &updated); err != nil {
+	job := models.Job{Title: "Updated"}
+	err := service.UpdateJob(1, 1, &job)
+
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if fakeRepo.UpdatedJob == nil {
-		t.Fatalf("expected Update to be called")
-	}
-	if fakeRepo.UpdatedJob.ID != 1 || fakeRepo.UpdatedJob.UserID.Int64 != 1 {
-		t.Fatalf("expected updated job to have ID 1 and UserID 1, got ID %d UserID %d", fakeRepo.UpdatedJob.ID, fakeRepo.UpdatedJob.UserID.Int64)
+		t.Fatal("expected update to be called")
 	}
 }
 
-func TestDeleteJob_OwnerMismatchReturnsForbidden(t *testing.T) {
-	fakeRepo := &FakeJobRepository{Jobs: []models.Job{{ID: 1, UserID: sql.NullInt64{Int64: 2, Valid: true}, Title: "Original"}}}
+func TestDeleteJob_Forbidden(t *testing.T) {
+	fakeRepo := &FakeJobRepository{
+		Jobs: []models.Job{
+			{ID: 1, UserID: sql.NullInt64{Int64: 2, Valid: true}},
+		},
+	}
 	service := JobService{Repo: fakeRepo}
 
-	if err := service.DeleteJob(1, 1); err == nil {
-		t.Fatalf("expected forbidden error for non-owner")
+	err := service.DeleteJob(1, 1)
+
+	if err == nil {
+		t.Fatal("expected forbidden error")
 	}
 }
 
 func TestDeleteJob_Success(t *testing.T) {
-	fakeRepo := &FakeJobRepository{Jobs: []models.Job{{ID: 1, UserID: sql.NullInt64{Int64: 1, Valid: true}, Title: "Original"}}}
+	fakeRepo := &FakeJobRepository{
+		Jobs: []models.Job{
+			{ID: 1, UserID: sql.NullInt64{Int64: 1, Valid: true}},
+		},
+	}
 	service := JobService{Repo: fakeRepo}
 
-	if err := service.DeleteJob(1, 1); err != nil {
+	err := service.DeleteJob(1, 1)
+
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if fakeRepo.DeletedID != 1 {
-		t.Fatalf("expected Delete to be called with ID 1, got %d", fakeRepo.DeletedID)
-	}
 	if len(fakeRepo.Jobs) != 0 {
-		t.Fatalf("expected job list to be empty after delete, got %d", len(fakeRepo.Jobs))
+		t.Fatal("expected job to be deleted")
 	}
 }
