@@ -75,7 +75,6 @@ backend/
 ## 🛠️ Technologies Used
 
 * Go
-* Gorilla Mux
 * PostgreSQL
 * JWT (authentication)
 * Bcrypt (password hashing)
